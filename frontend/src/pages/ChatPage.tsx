@@ -7,6 +7,10 @@ import RoomList from '../components/RoomList';
 import MessageList from '../components/MessageList';
 import MessageInput from '../components/MessageInput';
 import TypingIndicator from '../components/TypingIndicator';
+import CallPanel from '../components/CallPanel';
+import VoiceSection from '../components/VoiceSection';
+import VoiceControls from '../components/VoiceControls';
+import { useCall } from '../hooks/useCall';
 
 interface HistoryPayload {
   roomId: string;
@@ -75,6 +79,7 @@ export default function ChatPage() {
   const socket = useSocket();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
+  const call = useCall(socket, activeRoomId, user);
   const [messages, setMessages] = useState<Message[]>([]);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [newRoomName, setNewRoomName] = useState('');
@@ -244,22 +249,72 @@ export default function ChatPage() {
           <p className="sidebar-section-title">Salas</p>
           <RoomList rooms={rooms} activeId={activeRoomId} onSelect={setActiveRoomId} onJoin={joinRoom} />
         </div>
+
+        {call.inCall && activeRoom && (
+          <VoiceSection
+            roomName={activeRoom.name}
+            participants={call.participants}
+            selfId={call.selfId}
+            username={user?.username ?? ''}
+            muted={call.muted}
+            sharing={call.sharing}
+            speaking={call.speaking}
+          />
+        )}
+
+        {call.inCall && (
+          <VoiceControls
+            muted={call.muted}
+            sharing={call.sharing}
+            onToggleMute={call.toggleMute}
+            onToggleShare={call.toggleScreenShare}
+            onLeave={call.leaveCall}
+          />
+        )}
       </aside>
 
       <main className="chat">
         {activeRoom ? (
-          <>
-            <header className="chat-header">
-              <span className="room-icon">{activeRoom.isPrivate ? <LockIcon /> : <HashIcon />}</span>
-              <div>
-                <div className="chat-title">{activeRoom.name}</div>
-                <div className="chat-subtitle">{activeRoom.isPrivate ? 'Sala privada' : 'Sala pública'}</div>
-              </div>
-            </header>
-            <MessageList messages={messages} currentUserId={user?.id ?? ''} />
-            <TypingIndicator users={typingUsers} />
-            <MessageInput socket={socket} roomId={activeRoom.id} onSend={sendMessage} />
-          </>
+          call.inCall ? (
+            <CallPanel
+              roomName={activeRoom.name}
+              participants={call.participants}
+              screenStream={call.screenStream}
+              remoteStreams={call.remoteStreams}
+              speaking={call.speaking}
+              selfId={call.selfId}
+              username={user?.username ?? ''}
+              muted={call.muted}
+              sharing={call.sharing}
+              error={call.error}
+            />
+          ) : (
+            <>
+              <header className="chat-header">
+                <span className="room-icon">{activeRoom.isPrivate ? <LockIcon /> : <HashIcon />}</span>
+                <div>
+                  <div className="chat-title">{activeRoom.name}</div>
+                  <div className="chat-subtitle">{activeRoom.isPrivate ? 'Sala privada' : 'Sala pública'}</div>
+                </div>
+                <button
+                  className="btn btn-primary voice-join"
+                  type="button"
+                  onClick={() => void call.joinCall()}
+                  aria-label="Entrar na chamada de voz"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                  </svg>
+                  Entrar na voz
+                </button>
+              </header>
+              <MessageList messages={messages} currentUserId={user?.id ?? ''} />
+              <TypingIndicator users={typingUsers} />
+              <MessageInput socket={socket} roomId={activeRoom.id} onSend={sendMessage} />
+            </>
+          )
         ) : (
           <div className="empty-state">
             <div className="icon">

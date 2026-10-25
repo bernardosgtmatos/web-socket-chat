@@ -24,3 +24,11 @@ export interface Message {
   createdAt: string;
   user: MessageUser;
 }
+
+export interface CallParticipant {
+  userId: string;
+  username: string;
+  socketId: string;
+  muted: boolean;
+  sharing: boolean;
+}
